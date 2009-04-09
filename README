@@ -1,1 +1,1 @@
-Euphonia pretende ser uma API para migração de dados em bancos de dados relacionais. Seu desenvolvimento ainda está MUITO no início. É escrita em Java/JDBC e utiliza fluent interface.
+Euphonia aims to be an API for data migration for relational databases. Its development is at a very, very early stage. Euphonia is written in Java/JDBC.
