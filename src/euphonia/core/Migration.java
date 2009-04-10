@@ -69,7 +69,8 @@ public class Migration
 	private void runTable(DatabaseConnection source, DatabaseConnection target, Table table)
 	{
 		readDataFromSourceTable(table, source);
-		deleteFromTargetTable(table, target);
+		if (incremental)
+			deleteFromTargetTable(table, target);
 		writeDataToTargetTable(table, target);
 	}
 
