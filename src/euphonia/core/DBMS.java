@@ -2,7 +2,9 @@ package euphonia.core;
 
 public enum DBMS
 {
-	DERBY("org.apache.derby.jdbc.EmbeddedDriver");
+	DERBY_EMBEDDED("org.apache.derby.jdbc.EmbeddedDriver"),
+	POSTGRESQL("org.postgresql.Driver"),
+	FIREBIRD("org.firebirdsql.jdbc.FBDriver");
 	
 	private String driverClassName;
 	

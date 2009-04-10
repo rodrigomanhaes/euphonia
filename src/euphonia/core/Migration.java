@@ -24,6 +24,8 @@ public class Migration
 	
 	private boolean incremental = false;
 	
+	private String whereClause;
+	
 	private String sourceDatabase, targetDatabase;
 	private DBMS sourceDBMS, targetDBMS;
 	
@@ -69,7 +71,7 @@ public class Migration
 	private void runTable(DatabaseConnection source, DatabaseConnection target, Table table)
 	{
 		readDataFromSourceTable(table, source);
-		if (incremental)
+		if (!incremental)
 			deleteFromTargetTable(table, target);
 		writeDataToTargetTable(table, target);
 	}
@@ -133,7 +135,7 @@ public class Migration
 	{
 		try
 		{
-			ResultSet result = source.executeQuery("select * from " + table.sourceName);
+			ResultSet result = source.executeQuery(createSourceQuery(table));
 			try
 			{
 				ResultSetMetaData metadata = result.getMetaData();
@@ -159,6 +161,20 @@ public class Migration
 		}
 	}
 
+
+	private String createSourceQuery(Table table) 
+	{
+		StringBuilder builder = new StringBuilder()
+			.append("select * from ")
+			.append(table.sourceName); 
+		
+		if (whereClause != null)
+			builder
+				.append(" where ")
+				.append(whereClause);
+		
+		return builder.toString();
+	}
 
 	private Map<String, Integer> loadColumns(ResultSetMetaData metadata)
 		throws SQLException
@@ -247,6 +263,12 @@ public class Migration
 	public Migration incremental()
 	{
 		incremental = true;
+		return this;
+	}
+
+	public Migration where(String whereClause) 
+	{
+		this.whereClause = whereClause;
 		return this;
 	}
 }

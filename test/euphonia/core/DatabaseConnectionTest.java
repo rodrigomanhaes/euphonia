@@ -8,7 +8,7 @@ public class DatabaseConnectionTest
 	@Test
 	public void shouldConnectToDatabase() throws Exception
 	{
-		DatabaseConnection connection = ConnectionFactory.getConnection(DBMS.DERBY);
+		DatabaseConnection connection = ConnectionFactory.getConnection(DBMS.DERBY_EMBEDDED);
 		connection.open("jdbc:derby:dbteste;create=true", null, null);
 		assertEquals("Apache Derby", connection.getConnection().getMetaData().getDatabaseProductName());
 	}
@@ -16,7 +16,7 @@ public class DatabaseConnectionTest
 	@Test
 	public void shouldCloseConnection() throws Exception
 	{
-		DatabaseConnection connection = ConnectionFactory.getConnection(DBMS.DERBY);
+		DatabaseConnection connection = ConnectionFactory.getConnection(DBMS.DERBY_EMBEDDED);
 		connection.open("jdbc:derby:dbteste;create=true", null, null);
 		connection.close();
 		assertTrue(connection.getConnection().isClosed());

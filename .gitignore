@@ -2,3 +2,8 @@
 .classpath
 bin
 bin/*
+derby.log
+source
+source/*
+target
+target/*

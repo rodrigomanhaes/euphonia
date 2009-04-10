@@ -1,6 +1,9 @@
 package euphonia.core;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+
+import static euphonia.core.DBMS.DERBY_EMBEDDED;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -18,7 +21,7 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 
 import euphonia.core.transformation.Transformation;
-import euphonia.test.JDBCUtil;
+import static euphonia.test.JDBCUtil.recordCount;
 
 public class TableMigrationTest
 {
@@ -83,7 +86,14 @@ public class TableMigrationTest
 		try
 		{
 			statement.execute("drop table tb_pessoa");
+		}
+		catch (SQLException e)
+		{
+			log.warn(e.getMessage());
+		}
 		
+		try
+		{
 			String sql = "CREATE TABLE tb_pessoa (campo_id int not null generated always as identity, campo_nome varchar(40) not null, campo_cpf varchar(11) not null, campo_identidade varchar(20))";
 			statement.execute(sql);
 			
@@ -107,8 +117,8 @@ public class TableMigrationTest
 		createTargetDatabase();
 		
 		new Migration()
-			.from(DATABASE_SOURCE).in(DBMS.DERBY)
-			.to(DATABASE_TARGET).in(DBMS.DERBY)
+			.from(DATABASE_SOURCE).in(DERBY_EMBEDDED)
+			.to(DATABASE_TARGET).in(DERBY_EMBEDDED)
 			.table("tb_pessoa").to("pessoa")
 				.field("campo_id").to("id")
 				.field("campo_nome").to("nome")
@@ -127,10 +137,10 @@ public class TableMigrationTest
 		createTargetDatabase("", "campo_");
 		
 		new Migration()
-			.from(DATABASE_SOURCE).in(DBMS.DERBY)
-			.to(DATABASE_TARGET).in(DBMS.DERBY)
+			.from(DATABASE_SOURCE).in(DERBY_EMBEDDED)
+			.to(DATABASE_TARGET).in(DERBY_EMBEDDED)
 			.table("tb_pessoa").to("pessoa")
-			.allFields()
+				.allFields()
 			.run();
 		
 		verifyMigrationOfEntireTable("campo_");
@@ -152,8 +162,8 @@ public class TableMigrationTest
 		};
 		
 		new Migration()
-			.from(DATABASE_SOURCE).in(DBMS.DERBY)
-			.to(DATABASE_TARGET).in(DBMS.DERBY)
+			.from(DATABASE_SOURCE).in(DERBY_EMBEDDED)
+			.to(DATABASE_TARGET).in(DERBY_EMBEDDED)
 			.table("tb_pessoa").to("pessoa")
 				.field("campo_id").to("id")
 				.field("campo_nome").to("nome").withTransformation(reverse)
@@ -162,9 +172,9 @@ public class TableMigrationTest
 			.run();
 		
 		verifyMigrationOfEntireTableWithNames(
-			reverse("Linus Torvalds"),
-			reverse("Martin Fowler"),
-			reverse("Kent Beck")
+			reverse(TORVALDS_NAME),
+			reverse(FOWLER_NAME),
+			reverse(BECK_NAME)
 		);
 	}
 	
@@ -173,21 +183,85 @@ public class TableMigrationTest
 	{
 		createAndPopulateSourceDatabase();
 		createTargetDatabase("", "campo_", false);
-		String sql = "insert into pessoa (campo_nome, campo_cpf, campo_identidade) values(?,?,?)";
+		String sql = "insert into pessoa (campo_id, campo_nome, campo_cpf, campo_identidade) values(?,?,?,?)";
 		fillTable(target, sql, true);
 		
-		long sourceCount = JDBCUtil.recordCount(source, "tb_pessoa");
-		long targetInitialCount = JDBCUtil.recordCount(target, "pessoa");
+		long sourceCount = recordCount(source, "tb_pessoa");
+		long targetInitialCount = recordCount(target, "pessoa");
+		assertEquals(3, sourceCount);
+		assertEquals(3, targetInitialCount);
 		
 		new Migration()
-			.from(DATABASE_SOURCE).in(DBMS.DERBY)
-			.to(DATABASE_TARGET).in(DBMS.DERBY)
+			.from(DATABASE_SOURCE).in(DERBY_EMBEDDED)
+			.to(DATABASE_TARGET).in(DERBY_EMBEDDED)
 			.table("tb_pessoa").to("pessoa")
-			.allFields()
-			.incremental()
+				.allFields()
+				.incremental()
 			.run();
 		
-		assertEquals(sourceCount + targetInitialCount, JDBCUtil.recordCount(target, "pessoa"));
+		assertEquals(sourceCount + targetInitialCount, recordCount(target, "pessoa"));
+	}
+	
+	@Test
+	public void shouldApplySelectionCondition() throws Exception
+	{
+		createAndPopulateSourceDatabase();
+		createTargetDatabase("", "campo_");
+		
+		new Migration()
+			.from(DATABASE_SOURCE).in(DERBY_EMBEDDED)
+			.to(DATABASE_TARGET).in(DERBY_EMBEDDED)
+			.table("tb_pessoa").to("pessoa")
+				.allFields()
+				.where("campo_nome like '%Beck'")
+			.run();
+		
+		assertEquals(1, recordCount(target, "pessoa"));
+		compareRecord(target, "pessoa", 1, 
+			array(
+				array("campo_nome", BECK_NAME),
+				array("campo_cpf", BECK_CPF),
+				array("campo_identidade", BECK_IDENTIDADE)
+			)
+		);
+	}
+	
+	private void compareRecord(Connection connection, String tableName, int recordNumber,
+		String[][] camposeValores) throws SQLException
+	{
+		boolean found = false;
+		Statement statement = connection.createStatement();
+		try
+		{
+			ResultSet result = statement.executeQuery("select * from " + tableName);
+			try
+			{
+				int index = 1;
+				while (result.next())
+				{
+					if (index == recordNumber)
+					{
+						for (String[] campoValor: camposeValores)
+							assertEquals(campoValor[1], result.getObject(campoValor[0]));
+						found = true;
+					}
+				}
+			}
+			finally
+			{
+				result.close();
+			}
+		}
+		finally
+		{
+			statement.close();
+		}
+		assertTrue("Record with given index not found", found);
+	}
+
+	private <T> T[] array(T... elements)
+	{
+		return elements;
 	}
 	
 	@AfterClass
@@ -216,35 +290,47 @@ public class TableMigrationTest
 		fillTable(source, sql, false);
 	}
 	
-	private void fillTable(Connection connection, String sql, boolean comId) throws SQLException
+	private String
+		TORVALDS_NAME = "Linus Torvalds",
+		TORVALDS_CPF = "12345678901",
+		TORVALDS_IDENTIDADE = "1214324234",
+		FOWLER_NAME = "Martin Fowler",
+		FOWLER_CPF = "98765432109",
+		FOWLER_IDENTIDADE = "984723948",
+		BECK_NAME = "Kent Beck",
+		BECK_CPF = "98787676565",
+		BECK_IDENTIDADE = "768327362"; 
+	
+	private void fillTable(Connection connection, String sql, boolean insertId) throws SQLException
 	{
 		PreparedStatement ps = connection.prepareStatement(sql);
 		
 		try
 		{
 			int index = 0;
-			if (comId)
-				ps.setInt(++index, index);
-			ps.setString(++index, "Linus Torvalds");
-			ps.setString(++index, "12345678901");
-			ps.setString(++index, "1214324234");
+			if (insertId)
+				ps.setInt(++index, 10);
+			ps.setString(++index, TORVALDS_NAME);
+			ps.setString(++index, TORVALDS_CPF);
+			ps.setString(++index, TORVALDS_IDENTIDADE);
 			ps.execute();
 			ps.clearParameters();
 			
 			index = 0;
-			if (comId)
-				ps.setInt(++index, index);
-			ps.setString(++index, "Martin Fowler");
-			ps.setString(++index, "98765432109");
-			ps.setString(++index, "984723948");
+			if (insertId)
+				ps.setInt(++index, 20);
+			ps.setString(++index, FOWLER_NAME);
+			ps.setString(++index, FOWLER_CPF);
+			ps.setString(++index, FOWLER_IDENTIDADE);
 			ps.execute();
 			ps.clearParameters();
 			
-			if (comId)
-				ps.setInt(++index, index);
-			ps.setString(++index, "Kent Beck");
-			ps.setString(++index, "98787676565");
-			ps.setString(++index, "768327362");
+			index = 0;
+			if (insertId)
+				ps.setInt(++index, 30);
+			ps.setString(++index, BECK_NAME);
+			ps.setString(++index, BECK_CPF);
+			ps.setString(++index, BECK_IDENTIDADE);
 			
 			ps.execute();
 			ps.clearParameters();
@@ -278,19 +364,19 @@ public class TableMigrationTest
 		Set<String> identities = new HashSet<String>();
 		
 		ids.add(1);
-		names.add(paramNames != null ? paramNames[0] : "Linus Torvalds");
-		cpfs.add("12345678901");
-		identities.add("1214324234");
+		names.add(paramNames != null ? paramNames[0] : TORVALDS_NAME);
+		cpfs.add(TORVALDS_CPF);
+		identities.add(TORVALDS_IDENTIDADE);
 		
 		ids.add(2);
-		names.add(paramNames != null ? paramNames[1] : "Martin Fowler");
-		cpfs.add("98765432109");
-		identities.add("984723948");
+		names.add(paramNames != null ? paramNames[1] : FOWLER_NAME);
+		cpfs.add(FOWLER_CPF);
+		identities.add(FOWLER_IDENTIDADE);
 
 		ids.add(3);
-		names.add(paramNames != null ? paramNames[2] : "Kent Beck");
-		cpfs.add("98787676565");
-		identities.add("768327362");
+		names.add(paramNames != null ? paramNames[2] : BECK_NAME);
+		cpfs.add(BECK_CPF);
+		identities.add(BECK_IDENTIDADE);
 		
 		Set<String> namesFound = new HashSet<String>();
 		Set<String> cpfsFound = new HashSet<String>();
