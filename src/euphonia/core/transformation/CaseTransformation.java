@@ -34,7 +34,7 @@ public class CaseTransformation implements Transformation
 	 
 }
 
-enum CaseType
+enum CaseType 
 {
 	UPPER
 	{

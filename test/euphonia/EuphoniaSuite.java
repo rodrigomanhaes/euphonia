@@ -5,6 +5,7 @@ import org.junit.runners.Suite;
 import org.junit.runners.Suite.SuiteClasses;
 
 import euphonia.core.CoreSuite;
+import euphonia.core.fields.FieldConversionManyToOneTest;
 import euphonia.core.transformation.CaseTransformationTest;
 import euphonia.util.StringUtilTest;
 
@@ -12,6 +13,7 @@ import euphonia.util.StringUtilTest;
 @SuiteClasses({
 	CoreSuite.class,
 	CaseTransformationTest.class,
+	FieldConversionManyToOneTest.class,
 	StringUtilTest.class
 })
 public class EuphoniaSuite

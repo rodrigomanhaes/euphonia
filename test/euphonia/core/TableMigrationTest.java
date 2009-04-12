@@ -1,9 +1,10 @@
 package euphonia.core;
 
+import static euphonia.core.DBMS.DERBY_EMBEDDED;
+import static euphonia.core.fields.FieldConversionFactory.concat;
+import static euphonia.test.JDBCUtil.recordCount;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
-
-import static euphonia.core.DBMS.DERBY_EMBEDDED;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -21,7 +22,6 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 
 import euphonia.core.transformation.Transformation;
-import static euphonia.test.JDBCUtil.recordCount;
 
 public class TableMigrationTest
 {
@@ -226,6 +226,53 @@ public class TableMigrationTest
 		);
 	}
 	
+	@Test
+	public void shouldMigrateManyFieldsToOne() throws SQLException
+	{
+		createAndPopulateSourceDatabase();
+		dropAndCreateTable(target, "pessoa", 
+			"create table pessoa " +
+			"(id integer not null, " +
+			" data varchar(255) not null)");
+		
+		new Migration()
+			.from(DATABASE_SOURCE).in(DERBY_EMBEDDED)
+			.to(DATABASE_TARGET).in(DERBY_EMBEDDED)
+			.table("tb_pessoa").to("pessoa")
+				.field("campo_id").to("id")
+				.fields("campo_nome", "campo_cpf", "campo_identidade").to("data").operation(concat(","))
+			.run();
+		
+		compareRecord(target, "pessoa", 1,
+			new String[][] {{"data", TORVALDS_NAME + "," + TORVALDS_CPF + "," + TORVALDS_IDENTIDADE}});
+		compareRecord(target, "pessoa", 2, 
+			new String[][] {{"data", FOWLER_NAME + "," + FOWLER_CPF + "," + FOWLER_IDENTIDADE}});
+		compareRecord(target, "pessoa", 3, 
+			new String[][] {{"data", BECK_NAME + "," + BECK_CPF + "," + BECK_IDENTIDADE}});
+	}
+		
+	private void dropAndCreateTable(Connection connection, String tableName, String ddlCreate)
+		throws SQLException
+	{
+		Statement statement = connection.createStatement();
+		try
+		{
+			try
+			{
+				statement.execute("drop table " + tableName);
+			}
+			catch (SQLException e)
+			{
+				log.warn(e.getMessage());
+			}
+			statement.execute(ddlCreate);
+		}
+		finally
+		{
+			statement.close();
+		}
+	}
+	
 	private void compareRecord(Connection connection, String tableName, int recordNumber,
 		String[][] camposeValores) throws SQLException
 	{
@@ -237,7 +284,7 @@ public class TableMigrationTest
 			try
 			{
 				int index = 1;
-				while (result.next())
+				while (result.next() && !found)
 				{
 					if (index == recordNumber)
 					{
@@ -245,6 +292,7 @@ public class TableMigrationTest
 							assertEquals(campoValor[1], result.getObject(campoValor[0]));
 						found = true;
 					}
+					index++;
 				}
 			}
 			finally
@@ -308,8 +356,9 @@ public class TableMigrationTest
 		try
 		{
 			int index = 0;
+			
 			if (insertId)
-				ps.setInt(++index, 10);
+				ps.setInt(++index, 1);
 			ps.setString(++index, TORVALDS_NAME);
 			ps.setString(++index, TORVALDS_CPF);
 			ps.setString(++index, TORVALDS_IDENTIDADE);
@@ -318,7 +367,7 @@ public class TableMigrationTest
 			
 			index = 0;
 			if (insertId)
-				ps.setInt(++index, 20);
+				ps.setInt(++index, 2);
 			ps.setString(++index, FOWLER_NAME);
 			ps.setString(++index, FOWLER_CPF);
 			ps.setString(++index, FOWLER_IDENTIDADE);
@@ -327,7 +376,7 @@ public class TableMigrationTest
 			
 			index = 0;
 			if (insertId)
-				ps.setInt(++index, 30);
+				ps.setInt(++index, 3);
 			ps.setString(++index, BECK_NAME);
 			ps.setString(++index, BECK_CPF);
 			ps.setString(++index, BECK_IDENTIDADE);

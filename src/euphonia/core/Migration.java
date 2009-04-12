@@ -12,6 +12,7 @@ import java.util.Map;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
+import euphonia.core.fields.FieldConversionManyToOne;
 import euphonia.core.transformation.Transformation;
 
 public class Migration
@@ -44,6 +45,12 @@ public class Migration
 	public Field field(String name)
 	{
 		this.lastField = new Field(name, lastTable, this); 
+		return lastField;
+	}
+	
+	public Field fields(String... names) 
+	{
+		this.lastField = Field.manyToOne(names, lastTable, this);
 		return lastField;
 	}
 	
@@ -91,9 +98,12 @@ public class Migration
 					int paramCount = 1;
 					for (Field field: table.fields())
 					{
-						log.debug("Including value " + table.getValue(field.sourceName, count-1) + 
+						Object value = field.isManyToOne() ?
+								table.getValues(field.sourceNames, count-1) : 
+								table.getValue(field.sourceName, count-1); 
+						log.debug("Including value " + value + 
 							" for field " + field + " in table " + table);
-						ps.setObject(paramCount, field.copy(table.getValue(field.sourceName, count-1)));
+						ps.setObject(paramCount, field.copy(value));
 						paramCount++;
 					}
 					ps.execute();
@@ -143,11 +153,7 @@ public class Migration
 				while (result.next())
 				{
 					for (Field field: table.fields())
-					{
-						Integer index = columns.get(field.sourceName.toUpperCase()); 
-						field.sourceType = metadata.getColumnTypeName(index);
-						table.putValue(field.sourceName, result.getObject(field.sourceName));
-					}
+						field.getData(metadata, columns, result);
 				}
 			}
 			finally
@@ -271,6 +277,12 @@ public class Migration
 		this.whereClause = whereClause;
 		return this;
 	}
+
+	public Migration operation(FieldConversionManyToOne conversion) 
+	{
+		lastField.operation(conversion);
+		return this;
+	}
 }
 
 class Table
@@ -284,7 +296,11 @@ class Table
 	protected void addField(Field field)
 	{
 		fields.add(field);
-		sourceMap.put(field.sourceName, new ArrayList<Object>());
+		if (field.isManyToOne())
+			for (String fieldName: field.sourceNames)
+				sourceMap.put(fieldName, new ArrayList<Object>());
+		else
+			sourceMap.put(field.sourceName, new ArrayList<Object>());
 	}
 
 	protected int recordCount()
@@ -305,6 +321,14 @@ class Table
 	protected Object getValue(String field, int index)
 	{
 		return sourceMap.get(field).get(index);
+	}
+	
+	protected Object[] getValues(String[] fields, int index)
+	{
+		Object[] results = new Object[fields.length];
+		for (int i = 0; i < fields.length; i++)
+			results[i] = sourceMap.get(fields[i]).get(index);
+		return results;
 	}
 	
 	protected void putValue(String field, Object value)
@@ -341,21 +365,71 @@ class Table
 class Field
 {
 	String sourceName;
+	String[] sourceNames;
 	String sourceType;
 	Migration migration;
 	String targetName;
 	Transformation transformation;
+	FieldConversionManyToOne manyToOne;
+	private Table table;
 	
 	public Field(String name, Table table, Migration migration)
 	{
 		this.sourceName = name;		
 		this.migration = migration;
+		this.table = table;
 		table.addField(this);
 	}
 	
+	public void getData(ResultSetMetaData metadata, Map<String, Integer> columns, ResultSet result) 
+	{
+		try
+		{
+			String[] fieldSourceNames = isManyToOne() ? sourceNames : new String[] {sourceName}; 
+			for (String fieldSource: fieldSourceNames)
+			{
+				Integer index = columns.get(fieldSource.toUpperCase());
+				sourceType = metadata.getColumnTypeName(index);
+				table.putValue(fieldSource, result.getObject(fieldSource));
+			}
+		}
+		catch (SQLException e)
+		{
+			throw new RuntimeException(e); 
+		}
+	}
+
+	public void operation(FieldConversionManyToOne conversion) 
+	{
+		manyToOne = conversion;
+	}
+
+	private Field(String[] names, Table table, Migration migration)
+	{
+		this.sourceNames = names;		
+		this.migration = migration;
+		this.table = table;
+		table.addField(this);
+	}
+	
+	public static Field manyToOne(String[] names, Table lastTable, Migration migration) 
+	{
+		return new Field(names, lastTable, migration);
+	}
+	
+	boolean isManyToOne()
+	{
+		return sourceNames != null;
+	}
+
 	public Object copy(Object value)
 	{
-		return transformation == null ? value : transformation.transform(value);
+		if (isManyToOne())
+		{
+			return manyToOne.convert((Object[]) value);
+		}
+		else
+			return transformation == null ? value : transformation.transform(value);
 	}
 
 	public Field transformation(Transformation transformation)
@@ -378,6 +452,21 @@ class Field
 	@Override
 	public String toString()
 	{
+		String sourceName = null;
+		if (isManyToOne())
+		{
+			StringBuilder builder = new StringBuilder()
+				.append('[');
+			for (String source: sourceNames)
+				builder.append(source).append(',');
+			sourceName = builder 
+				.deleteCharAt(builder.length()-1)
+				.append(']')
+				.toString();
+		}
+		else
+			sourceName = this.sourceName;
+		
 		return new StringBuilder()
 			.append('(')
 			.append(sourceName)
