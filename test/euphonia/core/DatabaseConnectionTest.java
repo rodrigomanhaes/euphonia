@@ -1,6 +1,10 @@
 package euphonia.core;
 
 import org.junit.Test;
+
+import euphonia.core.database.ConnectionFactory;
+import euphonia.core.database.DBMS;
+import euphonia.core.database.DatabaseConnection;
 import static org.junit.Assert.*;
 
 public class DatabaseConnectionTest

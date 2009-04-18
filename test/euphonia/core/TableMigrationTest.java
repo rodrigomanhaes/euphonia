@@ -1,6 +1,6 @@
 package euphonia.core;
 
-import static euphonia.core.DBMS.DERBY_EMBEDDED;
+import static euphonia.core.database.DBMS.DERBY_EMBEDDED;
 import static euphonia.core.fields.FieldConversionFactory.concat;
 import static euphonia.test.JDBCUtil.recordCount;
 import static org.junit.Assert.assertEquals;

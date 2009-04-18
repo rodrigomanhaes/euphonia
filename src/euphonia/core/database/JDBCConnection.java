@@ -1,4 +1,4 @@
-package euphonia.core;
+package euphonia.core.database;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
