@@ -5,9 +5,7 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -70,7 +68,7 @@ public class Migration
 			try
 			{
 				for (Table table: tables)
-					runTable(source, target, table);
+					runMigrationForTable(table, source, target);
 			}
 			finally
 			{
@@ -85,13 +83,36 @@ public class Migration
 		return this;
 	}
 	
-	private void runTable(DatabaseConnection source, DatabaseConnection target, Table table)
+	private void runMigrationForTable(Table table, DatabaseConnection source, DatabaseConnection target)
 	{
-		readDataFromSourceTable(table, source);
-		if (!incremental)
-			deleteFromTargetTable(table, target);
-		writeDataToTargetTable(table, target);
+		try
+		{
+			readDataFromSourceTable(table, source);
+			if (!incremental)
+				deleteFromTargetTable(table, target);
+			writeDataToTargetTable(table, target);
+		}
+		catch (SQLException e)
+		{
+			throw new RuntimeException();
+		}
 	}
+	
+	private void readDataFromSourceTable(Table table, DatabaseConnection source)
+		throws SQLException
+	{
+		ResultSet result = source.executeQuery(createSourceQuery(table));
+		try
+		{
+			table.loadRecordsFromResultSet(result);
+		}
+		finally
+		{
+			result.close();
+		}
+	}
+
+
 
 	private void writeDataToTargetTable(Table table, DatabaseConnection target)
 	{
@@ -150,34 +171,6 @@ public class Migration
 		return sql;
 	}
 
-
-	private void readDataFromSourceTable(Table table, DatabaseConnection source)
-	{
-		try
-		{
-			ResultSet result = source.executeQuery(createSourceQuery(table));
-			try
-			{
-				ResultSetMetaData metadata = result.getMetaData();
-				Map<String, Integer> columns = loadColumns(metadata);
-				while (result.next())
-				{
-					for (Field field: table.fields())
-						field.getData(metadata, columns, result);
-				}
-			}
-			finally
-			{
-				result.close();
-			}
-		}
-		catch (SQLException e)
-		{
-			throw new RuntimeException(e);
-		}
-	}
-
-
 	private String createSourceQuery(Table table) 
 	{
 		StringBuilder builder = new StringBuilder()
@@ -190,15 +183,6 @@ public class Migration
 				.append(whereClause);
 		
 		return builder.toString();
-	}
-
-	private Map<String, Integer> loadColumns(ResultSetMetaData metadata)
-		throws SQLException
-	{
-		Map<String, Integer> columns = new HashMap<String, Integer>();
-		for (int i = 1; i <= metadata.getColumnCount(); i++)
-			columns.put(metadata.getColumnName(i).toUpperCase(), i);
-		return columns;
 	}
 
 	private void deleteFromTargetTable(Table table, DatabaseConnection target)

@@ -27,11 +27,12 @@ class Field
 		table.addField(this);
 	}
 	
-	public void getData(ResultSetMetaData metadata, Map<String, Integer> columns, ResultSet result) 
+	public void appendRecordFromResultSetToTable(ResultSet result, Map<String, Integer> columns) 
 	{
 		try
 		{
-			String[] fieldSourceNames = isManyToOne() ? sourceNames : new String[] {sourceName}; 
+			String[] fieldSourceNames = isManyToOne() ? sourceNames : new String[] {sourceName};
+			ResultSetMetaData metadata = result.getMetaData();
 			for (String fieldSource: fieldSourceNames)
 			{
 				Integer index = columns.get(fieldSource.toUpperCase());

@@ -1,5 +1,8 @@
 package euphonia.core;
 
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -79,5 +82,32 @@ class Table
 			.append(targetName)
 			.append(')')
 			.toString();
+	}
+
+	public void loadRecordsFromResultSet(ResultSet result) 
+	{
+		try
+		{
+			ResultSetMetaData metadata = result.getMetaData();
+			Map<String, Integer> columns = loadMapOfColumnNamesAndNumbers(metadata);
+			while (result.next())
+			{
+				for (Field field: fields())
+					field.appendRecordFromResultSetToTable(result, columns);
+			}
+		}
+		catch (SQLException e)
+		{
+			throw new RuntimeException(e);
+		}
+	}
+	
+	private Map<String, Integer> loadMapOfColumnNamesAndNumbers(ResultSetMetaData metadata)
+		throws SQLException
+	{
+		Map<String, Integer> columns = new HashMap<String, Integer>();
+		for (int columnNumber = 1; columnNumber <= metadata.getColumnCount(); columnNumber++)
+			columns.put(metadata.getColumnName(columnNumber).toUpperCase(), columnNumber);
+		return columns;
 	}
 }
