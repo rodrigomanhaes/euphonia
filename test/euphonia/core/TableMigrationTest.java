@@ -1,7 +1,7 @@
 package euphonia.core;
 
 import static euphonia.core.database.DBMS.DERBY_EMBEDDED;
-import static euphonia.core.fields.FieldConversionFactory.concat;
+import static euphonia.core.transfer.TransferFactory.concat;
 import static euphonia.test.JDBCUtil.recordCount;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -21,7 +21,7 @@ import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-import euphonia.core.transformation.Transformation;
+import euphonia.core.transfer.TransferStrategy;
 
 public class TableMigrationTest
 {
@@ -152,13 +152,14 @@ public class TableMigrationTest
 		createAndPopulateSourceDatabase();
 		createTargetDatabase();
 		
-		Transformation reverse = new Transformation() 
+		TransferStrategy reverse = new TransferStrategy() 
 		{
 			@Override
-			public Object transform(Object input)
+			public Object[] transfer(Object... values) 
 			{
-				return reverse((String) input);
+				return array(reverse((String) values[0]));
 			}
+			
 		};
 		
 		new Migration()
@@ -240,7 +241,8 @@ public class TableMigrationTest
 			.to(DATABASE_TARGET).in(DERBY_EMBEDDED)
 			.table("tb_pessoa").to("pessoa")
 				.field("campo_id").to("id")
-				.fields("campo_nome", "campo_cpf", "campo_identidade").to("data").operation(concat(","))
+				.fields("campo_nome", "campo_cpf", "campo_identidade").to("data")
+					.withTransformation(concat(","))
 			.run();
 		
 		compareRecord(target, "pessoa", 1,

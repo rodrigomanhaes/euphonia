@@ -1,5 +1,8 @@
 package euphonia.core;
 
+import static euphonia.util.CollectionUtil.array;
+import static euphonia.util.CollectionUtil.stringRepresentation;
+
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
@@ -13,8 +16,7 @@ import org.apache.commons.logging.LogFactory;
 import euphonia.core.database.ConnectionFactory;
 import euphonia.core.database.DBMS;
 import euphonia.core.database.DatabaseConnection;
-import euphonia.core.fields.FieldConversionManyToOne;
-import euphonia.core.transformation.Transformation;
+import euphonia.core.transfer.TransferStrategy;
 
 public class Migration
 {
@@ -45,14 +47,13 @@ public class Migration
 	}
 
 	public Field field(String name)
-	{
-		this.lastField = new Field(name, lastTable, this); 
-		return lastField;
+	{ 
+		return fields(array(name));
 	}
 	
 	public Field fields(String... names) 
 	{
-		this.lastField = Field.manyToOne(names, lastTable, this);
+		this.lastField = new Field(names, lastTable);
 		return lastField;
 	}
 	
@@ -129,12 +130,10 @@ public class Migration
 					int paramCount = 1;
 					for (Field field: table.fields())
 					{
-						Object value = field.isManyToOne() ?
-								table.getValues(field.sourceNames, count-1) : 
-								table.getValue(field.sourceName, count-1); 
-						log.debug("Including value " + value + 
+						Object[] values = table.getValues(field, count-1); 
+						log.debug("Including value " + stringRepresentation(values) + 
 							" for field " + field + " in table " + table);
-						ps.setObject(paramCount, field.copy(value));
+						ps.setObject(paramCount, field.copy(values)[0]);
 						paramCount++;
 					}
 					ps.execute();
@@ -160,7 +159,7 @@ public class Migration
 			.append(" (");
 		
 		for (Field field: table.fields())
-			sql.append(field.targetName).append(',');
+			sql.append(field.targetNames()[0]).append(',');
 		sql.delete(sql.length()-1, sql.length());
 		sql.append(") VALUES(");
 		for (int i = 0; i < table.fieldCount(); i++)
@@ -252,9 +251,9 @@ public class Migration
 		}
 	}
 
-	public Migration withTransformation(Transformation transformation)
+	public Migration withTransformation(TransferStrategy... transformations)
 	{
-		lastField.transformation(transformation);
+		lastField.transfers(transformations);
 		return this;
 	}
 
@@ -270,9 +269,4 @@ public class Migration
 		return this;
 	}
 
-	public Migration operation(FieldConversionManyToOne conversion) 
-	{
-		lastField.operation(conversion);
-		return this;
-	}
 }

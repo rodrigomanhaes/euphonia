@@ -1,8 +1,9 @@
-package euphonia.core.transformation;
+package euphonia.core.transfer;
 
 import euphonia.util.StringUtil;
+import static euphonia.util.CollectionUtil.array;
 
-public class CaseTransformation implements Transformation
+public class CaseTransformation implements TransferStrategy
 {
 	private CaseType type;
 	
@@ -11,25 +12,25 @@ public class CaseTransformation implements Transformation
 		this.type = type; 
 	}
 	
-	@Override
-	public Object transform(Object input)
-	{
-		return type.transform((String) input);
-	}
-	
-	public static Transformation upper()
+	public static TransferStrategy upper()
 	{
 		return new CaseTransformation(CaseType.UPPER);
 	}
 
-	public static Transformation lower()
+	public static TransferStrategy lower()
 	{
 		return new CaseTransformation(CaseType.LOWER);
 	}
 
-	public static Transformation capitalize()
+	public static TransferStrategy capitalize()
 	{
 		return new CaseTransformation(CaseType.CAPITALIZED);
+	}
+
+	@Override
+	public Object[] transfer(Object... values) 
+	{
+		return array(type.transform((String) values[0]));
 	}
 	 
 }

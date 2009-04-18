@@ -1,28 +1,32 @@
 package euphonia.core;
 
+import static euphonia.util.CollectionUtil.empty;
+import static euphonia.util.CollectionUtil.stringRepresentation;
+
 import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
-import euphonia.core.fields.FieldConversionManyToOne;
-import euphonia.core.transformation.Transformation;
+import euphonia.core.transfer.TransferStrategy;
 
+/**
+ * A field is a migration unit within a table. A field can be composed by more than one physical field 
+ * for both input and target.
+ * 
+ * @author Rodrigo Manh&atilde;es
+ */
 class Field
 {
-	String sourceName;
-	String[] sourceNames;
-	String sourceType;
-	Migration migration;
-	String targetName;
-	Transformation transformation;
-	FieldConversionManyToOne manyToOne;
+	private String[] sourceNames;
+	private String[] targetNames;
+	private TransferStrategy[] transferers;
 	private Table table;
 	
-	public Field(String name, Table table, Migration migration)
+	public Field(String[] names, Table table)
 	{
-		this.sourceName = name;		
-		this.migration = migration;
+		this.sourceNames = names;		
 		this.table = table;
 		table.addField(this);
 	}
@@ -31,14 +35,8 @@ class Field
 	{
 		try
 		{
-			String[] fieldSourceNames = isManyToOne() ? sourceNames : new String[] {sourceName};
-			ResultSetMetaData metadata = result.getMetaData();
-			for (String fieldSource: fieldSourceNames)
-			{
-				Integer index = columns.get(fieldSource.toUpperCase());
-				sourceType = metadata.getColumnTypeName(index);
+			for (String fieldSource: sourceNames)
 				table.putValue(fieldSource, result.getObject(fieldSource));
-			}
 		}
 		catch (SQLException e)
 		{
@@ -46,81 +44,69 @@ class Field
 		}
 	}
 
-	public void operation(FieldConversionManyToOne conversion) 
+	public void transfer(TransferStrategy transferer) 
 	{
-		manyToOne = conversion;
+		transfers(transferer);
 	}
 
-	private Field(String[] names, Table table, Migration migration)
+	public Object[] copy(Object[] values)
 	{
-		this.sourceNames = names;		
-		this.migration = migration;
-		this.table = table;
-		table.addField(this);
+		return empty(transferers) ? values : this.applyTransfers(values);
+	}
+
+	private Object[] applyTransfers(Object[] values) 
+	{
+		Object[] results = values;
+		for (TransferStrategy transferer: transferers)
+			results = transferer.transfer(results);
+		return results;
+	}
+
+	public Migration to(String... targetNames)
+	{
+		this.targetNames = targetNames;
+		return table.migration();
 	}
 	
-	public static Field manyToOne(String[] names, Table lastTable, Migration migration) 
+	public boolean isSingle()
 	{
-		return new Field(names, lastTable, migration);
-	}
-	
-	boolean isManyToOne()
-	{
-		return sourceNames != null;
-	}
-
-	public Object copy(Object value)
-	{
-		if (isManyToOne())
-		{
-			return manyToOne.convert((Object[]) value);
-		}
-		else
-			return transformation == null ? value : transformation.transform(value);
-	}
-
-	public Field transformation(Transformation transformation)
-	{
-		this.transformation = transformation;
-		return this;
-	}
-	
-	public Transformation transformation()
-	{
-		return transformation;
-	}
-
-	public Migration to(String targetName)
-	{
-		this.targetName = targetName;
-		return migration;
+		return sourceNames.length == 0;
 	}
 	
 	@Override
 	public String toString()
 	{
-		String sourceName = null;
-		if (isManyToOne())
-		{
-			StringBuilder builder = new StringBuilder()
-				.append('[');
-			for (String source: sourceNames)
-				builder.append(source).append(',');
-			sourceName = builder 
-				.deleteCharAt(builder.length()-1)
-				.append(']')
-				.toString();
-		}
-		else
-			sourceName = this.sourceName;
-		
 		return new StringBuilder()
 			.append('(')
-			.append(sourceName)
+			.append(stringRepresentation(sourceNames))
 			.append(',')
-			.append(targetName)
+			.append(stringRepresentation(targetNames))
 			.append(')')
 			.toString();
+	}
+
+	public void putEntriesForSourceParts(Map<String, List<Object>> sourceMap) 
+	{
+		for (String fieldName: sourceNames)
+			sourceMap.put(fieldName, new ArrayList<Object>());
+	}
+
+	public Object[] getValues(Map<String, List<Object>> sourceMap, int index) 
+	{
+		Object[] results = new Object[sourceNames.length];
+		for (int i = 0; i < sourceNames.length; i++)
+			results[i] = sourceMap.get(sourceNames[i]).get(index);
+		return results;
+	}
+
+	public String[] targetNames()
+	{
+		return targetNames;
+	}
+
+	public void transfers(TransferStrategy... transferers) 
+	{
+		this.transferers = transferers;
 	}
 	
 }

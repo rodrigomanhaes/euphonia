@@ -19,11 +19,7 @@ class Table
 	protected void addField(Field field)
 	{
 		fields.add(field);
-		if (field.isManyToOne())
-			for (String fieldName: field.sourceNames)
-				sourceMap.put(fieldName, new ArrayList<Object>());
-		else
-			sourceMap.put(field.sourceName, new ArrayList<Object>());
+		field.putEntriesForSourceParts(sourceMap);
 	}
 
 	protected int recordCount()
@@ -41,17 +37,9 @@ class Table
 		return fields;
 	}
 
-	protected Object getValue(String field, int index)
+	protected Object[] getValues(Field field, int index)
 	{
-		return sourceMap.get(field).get(index);
-	}
-	
-	protected Object[] getValues(String[] fields, int index)
-	{
-		Object[] results = new Object[fields.length];
-		for (int i = 0; i < fields.length; i++)
-			results[i] = sourceMap.get(fields[i]).get(index);
-		return results;
+		return field.getValues(this.sourceMap, index);
 	}
 	
 	protected void putValue(String field, Object value)
@@ -109,5 +97,10 @@ class Table
 		for (int columnNumber = 1; columnNumber <= metadata.getColumnCount(); columnNumber++)
 			columns.put(metadata.getColumnName(columnNumber).toUpperCase(), columnNumber);
 		return columns;
+	}
+	
+	public Migration migration()
+	{
+		return migration;
 	}
 }

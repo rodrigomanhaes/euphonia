@@ -1,14 +1,16 @@
-package euphonia.core.fields;
+package euphonia.core.transfer;
 
-public class FieldConcat implements FieldConversionManyToOne 
+import static euphonia.util.CollectionUtil.array;
+
+public class Concat implements TransferStrategy 
 {
 	private String fill;	
 	
-	public FieldConcat()
+	public Concat()
 	{
 	}
 	
-	public FieldConcat(String fill)
+	public Concat(String fill)
 	{
 		this.fill = fill;
 	}
@@ -19,11 +21,11 @@ public class FieldConcat implements FieldConversionManyToOne
 	}
 	
 	@Override
-	public Object convert(Object... many) 
+	public Object[] transfer(Object... values) 
 	{
 		StringBuilder builder = new StringBuilder();
 		boolean first = true;
-		for (Object piece: many)
+		for (Object piece: values)
 		{
 			if (!first && hasFill())
 				builder.append(fill);
@@ -31,7 +33,7 @@ public class FieldConcat implements FieldConversionManyToOne
 				first = false;	
 			builder.append(piece);
 		}
-		return builder.toString();
+		return array(builder.toString());
 	}
 
 }
