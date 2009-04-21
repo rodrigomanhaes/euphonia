@@ -3,7 +3,7 @@ Euphonia is an API for data migration in relational databases. Euphonia is writt
 
 You must specify: origin and target database connection string, origin and target DBMS, table and field names. The meaning of methods is straightforward.
 
-<code><pre>new Migration()
+new Migration()
     .from(DATABASE_SOURCE).in(DERBY_EMBEDDED)
     .to(DATABASE_TARGET).in(DERBY_EMBEDDED)
     .table("tb_pessoa").to("pessoa")
@@ -11,17 +11,17 @@ You must specify: origin and target database connection string, origin and targe
         .field("campo_nome").to("nome")
         .field("campo_cpf").to("cpf")
         .field("campo_identidade").to("identidade")
-    .run();</pre></code>
+    .run();
 
 
 If all fields in the source and target are equal and all fields must be migrated, a shortcut can be used.
 
-<code><pre>new Migration()
+new Migration()
     .from(DATABASE_SOURCE).in(DERBY_EMBEDDED)
     .to(DATABASE_TARGET).in(DERBY_EMBEDDED)
     .table("tb_pessoa").to("pessoa")
         .allFields()
-    .run();</pre></code>
+    .run();
 
 
 Arbitrary conversions can be applied to field copies.
