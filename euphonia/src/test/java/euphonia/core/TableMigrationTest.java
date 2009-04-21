@@ -31,8 +31,8 @@ public class TableMigrationTest
 	
 	private static final String 
 		DERBY_JDBC_DRIVER = "org.apache.derby.jdbc.EmbeddedDriver",
-		DATABASE_SOURCE = "jdbc:derby:source;create=true",
-		DATABASE_TARGET = "jdbc:derby:target;create=true";
+		DATABASE_SOURCE = "jdbc:derby:temp/source;create=true",
+		DATABASE_TARGET = "jdbc:derby:temp/target;create=true";
 	
 	private static Connection source, target;
 	

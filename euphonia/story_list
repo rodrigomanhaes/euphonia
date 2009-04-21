@@ -1,0 +1,4 @@
+STORY_LIST
+
+- fields many-to-many
+- auto create table (use dialects?)
