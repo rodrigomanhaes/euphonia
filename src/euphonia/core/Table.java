@@ -27,11 +27,6 @@ class Table
 		return sourceMap.get(sourceMap.keySet().iterator().next()).size();
 	}
 	
-	protected int fieldCount()
-	{
-		return fields.size();
-	}
-	
 	protected Iterable<Field> fields()
 	{
 		return fields;

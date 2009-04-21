@@ -1,3 +1,31 @@
-Euphonia aims to be an API for data migration for relational databases. Its development is at an early stage. Euphonia is written in Java/JDBC.
+Euphonia is an API for data migration in relational databases. Euphonia is written in Java/JDBC, multiplatform and multidatabase.
+
+
+You must specify: origin and target database connection string, origin and target DBMS, table and field names. The meaning of methods is straightforward.
+
+<code><pre>new Migration()
+    .from(DATABASE_SOURCE).in(DERBY_EMBEDDED)
+    .to(DATABASE_TARGET).in(DERBY_EMBEDDED)
+    .table("tb_pessoa").to("pessoa")
+        .field("campo_id").to("id")
+        .field("campo_nome").to("nome")
+        .field("campo_cpf").to("cpf")
+        .field("campo_identidade").to("identidade")
+    .run();</pre></code>
+
+
+If all fields in the source and target are equal and all fields must be migrated, a shortcut can be used.
+
+<code><pre>new Migration()
+    .from(DATABASE_SOURCE).in(DERBY_EMBEDDED)
+    .to(DATABASE_TARGET).in(DERBY_EMBEDDED)
+    .table("tb_pessoa").to("pessoa")
+        .allFields()
+    .run();</pre></code>
+
+
+Arbitrary conversions can be applied to field copies.
+
+[... will be completed...] 
 
 Current dependencies are JUnit 4, Apache Commons Logging, Apache Log4J and Apache Derby. 

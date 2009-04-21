@@ -113,8 +113,6 @@ public class Migration
 		}
 	}
 
-
-
 	private void writeDataToTargetTable(Table table, DatabaseConnection target)
 	{
 		StringBuilder sql = createInsertQuery(table);
@@ -133,8 +131,8 @@ public class Migration
 						Object[] values = table.getValues(field, count-1); 
 						log.debug("Including value " + stringRepresentation(values) + 
 							" for field " + field + " in table " + table);
-						ps.setObject(paramCount, field.copy(values)[0]);
-						paramCount++;
+						for (Object value: field.copy(values))
+							ps.setObject(paramCount++, value);
 					}
 					ps.execute();
 				}
@@ -157,12 +155,16 @@ public class Migration
 			.append("insert into ")
 			.append(table.targetName)
 			.append(" (");
-		
+		int index = 0;
 		for (Field field: table.fields())
-			sql.append(field.targetNames()[0]).append(',');
+			for (String targetName: field.targetNames())
+			{
+				sql.append(targetName).append(',');
+				index++;
+			}
 		sql.delete(sql.length()-1, sql.length());
 		sql.append(") VALUES(");
-		for (int i = 0; i < table.fieldCount(); i++)
+		for (int i = 0; i < index; i++)
 			sql.append("?,");
 		sql.delete(sql.length()-1, sql.length());
 		sql.append(')');

@@ -12,4 +12,9 @@ public class TransferFactory
 	{
 		return new Concat(fill);
 	}
+	
+	public static TransferStrategy split(String regex)
+	{
+		return new Split(regex);
+	}
 }

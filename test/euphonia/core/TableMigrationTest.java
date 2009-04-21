@@ -2,7 +2,9 @@ package euphonia.core;
 
 import static euphonia.core.database.DBMS.DERBY_EMBEDDED;
 import static euphonia.core.transfer.TransferFactory.concat;
+import static euphonia.core.transfer.TransferFactory.split;
 import static euphonia.test.JDBCUtil.recordCount;
+import static euphonia.util.CollectionUtil.array;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
@@ -252,6 +254,54 @@ public class TableMigrationTest
 		compareRecord(target, "pessoa", 3, 
 			new String[][] {{"data", BECK_NAME + "," + BECK_CPF + "," + BECK_IDENTIDADE}});
 	}
+	
+	@Test
+	public void shouldMigrateOneFieldToMany() throws SQLException
+	{
+		dropAndCreateTable(source, "tb_pessoa", 
+			"create table tb_pessoa (" +
+			"  id integer not null, " +
+			"  data varchar(255) not null)");
+		insertData(source, "tb_pessoa", 
+			array(
+				array("1", TORVALDS_NAME + ',' + TORVALDS_CPF + ',' + TORVALDS_IDENTIDADE),
+				array("2", FOWLER_NAME + ',' + FOWLER_CPF + ',' + FOWLER_IDENTIDADE),
+				array("3", BECK_NAME + ',' + BECK_CPF + ',' + BECK_IDENTIDADE)
+			)
+		);
+		createTargetDatabase();
+		
+		new Migration()
+			.from(DATABASE_SOURCE).in(DERBY_EMBEDDED)
+			.to(DATABASE_TARGET).in(DERBY_EMBEDDED)
+			.table("tb_pessoa").to("pessoa")
+				.field("id").to("id")
+				.fields("data").to("nome", "cpf", "identidade")
+					.withTransformation(split(","))
+			.run();
+		
+		compareRecord(target, "pessoa", 1,
+			array(
+				array("nome", TORVALDS_NAME),
+				array("cpf", TORVALDS_CPF),
+				array("identidade", TORVALDS_IDENTIDADE)
+			)
+		);
+		compareRecord(target, "pessoa", 2,
+			array(
+				array("nome", FOWLER_NAME),
+				array("cpf", FOWLER_CPF),
+				array("identidade", FOWLER_IDENTIDADE)
+			)
+		);
+		compareRecord(target, "pessoa", 3,
+			array(
+				array("nome", BECK_NAME),
+				array("cpf", BECK_CPF),
+				array("identidade", BECK_IDENTIDADE)
+			)
+		);
+	}
 		
 	private void dropAndCreateTable(Connection connection, String tableName, String ddlCreate)
 		throws SQLException
@@ -309,11 +359,6 @@ public class TableMigrationTest
 		assertTrue("Record with given index not found", found);
 	}
 
-	private <T> T[] array(T... elements)
-	{
-		return elements;
-	}
-	
 	@AfterClass
 	public static void down() throws Exception
 	{
@@ -334,6 +379,41 @@ public class TableMigrationTest
 			result.append(input.charAt(index));
 		return result.toString();
 	}
+	
+	private void insertData(Connection connection, String tableName, String[][] records)
+		throws SQLException
+	{
+		StringBuilder sql = new StringBuilder()
+			.append("insert into ")
+			.append(tableName)
+			.append(" values(");
+		int fieldCount = records[0].length;
+		for (int i = 1; i <= fieldCount; i++)
+		{
+			sql.append('?');
+			if (i < fieldCount)
+				sql.append(',');
+		}
+		sql.append(')');
+		
+		PreparedStatement ps = connection.prepareStatement(sql.toString());
+		try
+		{
+			for (String[] record: records)
+			{
+				ps.clearParameters();
+				int index = 1;
+				for (String fieldValue: record)
+					ps.setString(index++, fieldValue);
+				ps.execute();
+			}
+		}
+		finally
+		{
+			ps.close();
+		}
+	}
+
 	
 	private void fillSourceTable(String sql) throws SQLException
 	{
