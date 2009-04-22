@@ -303,6 +303,69 @@ public class TableMigrationTest
 			)
 		);
 	}
+	
+	@Test
+	public void shouldMigrateManyFieldsToMany() throws SQLException
+	{
+		createAndPopulateSourceDatabase();
+		dropAndCreateTable(target, "pessoa", 
+			"create table pessoa (" + 
+			"  id integer not null, " +
+			"  nome_cpf varchar(255) not null, " +
+			"  cpf_identidade varchar(255) not null)");
+		
+		TransferStrategy threeToTwo = new TransferStrategy()
+		{
+			private String firstHalf(String s)
+			{
+				return s.substring(0, s.length() / 2 + 1);
+			}
+			private String lastHalf(String s)
+			{					
+				return s.substring(s.length() / 2 + 1);
+			}
+			@Override
+			public Object[] transfer(Object... values) 
+			{
+				String[] result = {
+					values[0].toString() + firstHalf(values[1].toString()),
+					lastHalf(values[1].toString()) + values[2].toString()
+				};
+				return result;
+			}
+		};
+		
+		new Migration()
+			.from(DATABASE_SOURCE).in(DERBY_EMBEDDED)
+			.to(DATABASE_TARGET).in(DERBY_EMBEDDED)
+			.table("tb_pessoa").to("pessoa")
+				.field("campo_id").to("id")					
+				.fields("campo_nome", "campo_cpf", "campo_identidade").to("nome_cpf", "cpf_identidade")
+					.withTransformation(threeToTwo)
+			.run();
+		
+		String[] resultRecord = (String[]) threeToTwo.transfer(TORVALDS_NAME, TORVALDS_CPF, TORVALDS_IDENTIDADE);  
+		compareRecord(target, "pessoa", 1,
+			array(
+				array("nome_cpf", resultRecord[0]),
+				array("cpf_identidade", resultRecord[1])
+			)
+		);
+		resultRecord = (String[]) threeToTwo.transfer(FOWLER_NAME, FOWLER_CPF, FOWLER_IDENTIDADE);
+		compareRecord(target, "pessoa", 2,
+			array(
+				array("nome_cpf", resultRecord[0]),
+				array("cpf_identidade", resultRecord[1])
+			)
+		);
+		resultRecord = (String[]) threeToTwo.transfer(BECK_NAME, BECK_CPF, BECK_IDENTIDADE);
+		compareRecord(target, "pessoa", 3,
+			array(
+				array("nome_cpf", resultRecord[0]),
+				array("cpf_identidade", resultRecord[1])
+			)
+		);
+	}
 		
 	private void dropAndCreateTable(Connection connection, String tableName, String ddlCreate)
 		throws SQLException
