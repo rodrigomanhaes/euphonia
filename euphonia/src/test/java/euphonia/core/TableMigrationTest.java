@@ -4,6 +4,7 @@ import static euphonia.core.database.DBMS.DERBY_EMBEDDED;
 import static euphonia.core.transfer.TransferFactory.concat;
 import static euphonia.core.transfer.TransferFactory.split;
 import static euphonia.test.JDBCUtil.recordCount;
+import static euphonia.test.TestUtil.deleteDirectory;
 import static euphonia.util.CollectionUtil.array;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -364,6 +365,7 @@ public class TableMigrationTest
 	{
 		source.close();
 		target.close();
+		deleteDirectory("./temp");
 	}
 	
 	@Test
