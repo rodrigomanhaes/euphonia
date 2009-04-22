@@ -1,4 +1,4 @@
 STORY_LIST
 
-- fields many-to-many
+- from non-normalized field to foreign key to another table
 - auto create table (use dialects?)
