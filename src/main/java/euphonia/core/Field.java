@@ -17,7 +17,7 @@ import euphonia.core.transfer.TransferStrategy;
  * 
  * @author Rodrigo Manh&atilde;es
  */
-class Field
+public class Field
 {
 	private String[] sourceNames;
 	private String[] targetNames;

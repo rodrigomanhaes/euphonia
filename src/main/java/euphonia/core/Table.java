@@ -8,7 +8,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-class Table
+public class Table
 {
 	String sourceName;
 	private Migration migration;

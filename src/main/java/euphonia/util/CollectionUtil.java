@@ -21,7 +21,10 @@ public class CollectionUtil
 		
 		Iterator<?> iterator = collection.iterator();
 		if (collection.size() == 1)
-			return iterator.next().toString();
+		{
+			Object result = iterator.next();  
+			return result != null ? result.toString() : null;
+		}
 			
 		StringBuilder builder = new StringBuilder();
 		builder.append('[');

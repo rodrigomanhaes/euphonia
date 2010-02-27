@@ -21,19 +21,22 @@ import euphonia.core.transfer.TransferStrategy;
 public class Migration
 {
 	private static final Log log = LogFactory.getLog(Migration.class);
-	
+
 	private List<Table> tables = new ArrayList<Table>();
 	private Table lastTable;
 	private Field lastField;
 	private boolean sourceWasLast = false;
-	
+
 	private boolean incremental = false;
-	
+
 	private String whereClause;
-	
+
 	private String sourceDatabase, targetDatabase;
 	private DBMS sourceDBMS, targetDBMS;
-	
+
+	private String sourceUsername, sourcePassword;
+	private String targetUsername, targetPassword;
+
 	protected boolean addTable(Table table)
 	{
 		return tables.add(table);
@@ -47,24 +50,24 @@ public class Migration
 	}
 
 	public Field field(String name)
-	{ 
+	{
 		return fields(array(name));
 	}
-	
-	public Field fields(String... names) 
+
+	public Field fields(String... names)
 	{
 		this.lastField = new Field(names, lastTable);
 		return lastField;
 	}
-	
+
 	public Migration run()
 	{
 		DatabaseConnection source = ConnectionFactory.getConnection(sourceDBMS)
-			.open(sourceDatabase, null, null);
+			.open(sourceDatabase, sourceUsername, sourcePassword != null ? sourcePassword.toCharArray() : null);
 		try
 		{
 			DatabaseConnection target = ConnectionFactory.getConnection(targetDBMS)
-				.open(targetDatabase, null, null);
+				.open(targetDatabase, targetUsername, targetPassword != null ? targetPassword.toCharArray() : null);
 
 			try
 			{
@@ -80,10 +83,10 @@ public class Migration
 		{
 			source.close();
 		}
-		
+
 		return this;
 	}
-	
+
 	private void runMigrationForTable(Table table, DatabaseConnection source, DatabaseConnection target)
 	{
 		try
@@ -98,7 +101,7 @@ public class Migration
 			throw new RuntimeException();
 		}
 	}
-	
+
 	private void readDataFromSourceTable(Table table, DatabaseConnection source)
 		throws SQLException
 	{
@@ -116,9 +119,10 @@ public class Migration
 	private void writeDataToTargetTable(Table table, DatabaseConnection target)
 	{
 		StringBuilder sql = createInsertQuery(table);
-		
+
 		try
 		{
+			log.info(sql);
 			PreparedStatement ps = target.getConnection().prepareStatement(sql.toString());
 			try
 			{
@@ -128,8 +132,8 @@ public class Migration
 					int paramCount = 1;
 					for (Field field: table.fields())
 					{
-						Object[] values = table.getValues(field, count-1); 
-						log.debug("Including value " + stringRepresentation(values) + 
+						Object[] values = table.getValues(field, count-1);
+						log.info("Including value " + stringRepresentation(values) +
 							" for field " + field + " in table " + table);
 						for (Object value: field.copy(values))
 							ps.setObject(paramCount++, value);
@@ -172,17 +176,17 @@ public class Migration
 		return sql;
 	}
 
-	private String createSourceQuery(Table table) 
+	private String createSourceQuery(Table table)
 	{
 		StringBuilder builder = new StringBuilder()
 			.append("select * from ")
-			.append(table.sourceName); 
-		
+			.append(table.sourceName);
+
 		if (whereClause != null)
 			builder
 				.append(" where ")
 				.append(whereClause);
-		
+
 		return builder.toString();
 	}
 
@@ -216,12 +220,27 @@ public class Migration
 		return this;
 	}
 
+	public Migration withAuth(String username, String password)
+	{
+	    if (sourceWasLast)
+        {
+	       this.sourceUsername = username;
+	       this.sourcePassword = password;
+        }
+        else
+        {
+	       this.targetUsername = username;
+	       this.targetPassword = password;
+        }
+        return this;
+	}
+
 	public Migration allFields()
 	{
 		try
 		{
 			DatabaseConnection source = ConnectionFactory.getConnection(sourceDBMS)
-				.open(sourceDatabase, null, null);
+				.open(sourceDatabase, sourceUsername, sourcePassword != null ? sourcePassword.toCharArray() : null);
 			try
 			{
 				String tableName = lastTable.sourceName;
@@ -245,7 +264,7 @@ public class Migration
 				source.close();
 			}
 			return this;
-			
+
 		}
 		catch (SQLException e)
 		{
@@ -265,10 +284,11 @@ public class Migration
 		return this;
 	}
 
-	public Migration where(String whereClause) 
+	public Migration where(String whereClause)
 	{
 		this.whereClause = whereClause;
 		return this;
 	}
 
 }
+
